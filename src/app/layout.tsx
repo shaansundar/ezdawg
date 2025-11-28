@@ -1,34 +1,16 @@
+"use client";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import dynamic from "next/dynamic";
+import { RainbowProvider } from "@/components/providers/rainbow-provider";
 
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
-
-const RainbowProvider = dynamic(
-  () =>
-    import("@/components/providers/rainbow-provider").then((mod) => ({
-      default: mod.RainbowProvider,
-    })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    ),
-  }
-);
 
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "EZDAWG - Hyperliquid SIP Platform",
-  description: "Smart investment portal for Hyperliquid spot assets",
-};
 export default function RootLayout({
   children,
 }: Readonly<{

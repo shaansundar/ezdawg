@@ -5,7 +5,6 @@ import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
 import { arbitrum } from "wagmi/chains";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
 import {
   metaMaskWallet,
   walletConnectWallet,
@@ -23,20 +22,18 @@ const queryClient = new QueryClient({
 export function RainbowProvider({ children }: { children: React.ReactNode }) {
   // Config is created on client side only (component is dynamically imported with ssr: false)
 
-  const config = useMemo(() => {
-    return getDefaultConfig({
-      appName: "EZDAWG - Hyperliquid SIP Platform",
-      projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
-      chains: [arbitrum],
-      ssr: false,
-      wallets: [
-        {
-          groupName: "Recommended",
-          wallets: [metaMaskWallet, rabbyWallet, walletConnectWallet],
-        },
-      ],
-    });
-  }, []);
+  const config = getDefaultConfig({
+    appName: "EZDAWG - Hyperliquid SIP Platform",
+    projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
+    chains: [arbitrum],
+    ssr: false,
+    wallets: [
+      {
+        groupName: "Recommended",
+        wallets: [metaMaskWallet, rabbyWallet, walletConnectWallet],
+      },
+    ],
+  });
 
   return (
     <WagmiProvider config={config}>
