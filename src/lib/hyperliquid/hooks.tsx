@@ -4,10 +4,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useHyperliquidStore } from "./store";
 import { Address } from "viem";
 import { toast } from "sonner";
-import { generateAgentWallet } from "@/lib/crypto/wallet";
-import { privateKeyToAccount } from "viem/accounts";
-import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
+import { initializeAgent } from "./agent-service";
 
 // Initialize store on module load
 if (typeof window !== "undefined") {
@@ -40,137 +38,37 @@ export function useGetBalances(userAddress: Address) {
 
 /**
  * Hook to initialize exchange and agent clients
- * Only runs when user exists and is authenticated
+ * Uses React Query for automatic retries and better state management
  */
 export function useInitializeAgent() {
+  const { address } = useAccount();
   const initExchangeClient = useHyperliquidStore(
     (state) => state.initExchangeClient
   );
   const initAgentClient = useHyperliquidStore((state) => state.initAgentClient);
   const exchangeClient = useHyperliquidStore((state) => state.exchangeClient);
-  const agentClient = useHyperliquidStore((state) => state.agentClient);
   const infoClient = useHyperliquidStore((state) => state.infoClient);
-  const { address } = useAccount();
 
-  const [data, setData] = useState<{
-    agentAddress: Address;
-    initialized: boolean;
-  } | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    // Only run if user exists and address is available
-    if (!address) {
-      return;
-    }
-    // Don't re-initialize if already initialized or currently loading
-    if (data || isLoading) {
-      return;
-    }
-
-    const initialize = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        // Step 1: Get or generate agent private key
-        // TODO: Replace localStorage with DB fetch later
-        const saveKey = `agentPrivateKey-${address}`;
-        let agentPrivateKey = localStorage.getItem(saveKey);
-
-        if (!agentPrivateKey) {
-          const { privateKey } = generateAgentWallet();
-          agentPrivateKey = privateKey;
-          localStorage.setItem(saveKey, privateKey);
-        }
-
-        // Step 2: Initialize exchange client (user's wallet)
-        if (!exchangeClient) {
-          await initExchangeClient();
-        }
-
-        // Step 3: Get agent account from private key
-        const agentAccount = privateKeyToAccount(agentPrivateKey as Address);
-
-        // Step 4: Check if agent is already approved
-        let isApproved = false;
-        if (infoClient && address) {
-          try {
-            const resp = await infoClient.extraAgents({
-              user: address as Address,
-            });
-            if (resp) {
-              const found = resp.find(
-                (agent) => agent.address === agentAccount.address
-              );
-              isApproved = !!found;
-            }
-          } catch (error) {
-            console.warn("Failed to check agent status:", error);
-            // Continue with approval attempt if check fails
-          }
-        }
-
-        // Step 5: Approve agent only if not already approved
-        if (!isApproved) {
-          const currentExchangeClient =
-            useHyperliquidStore.getState().exchangeClient;
-          if (currentExchangeClient) {
-            try {
-              await currentExchangeClient.approveAgent({
-                agentAddress: agentAccount.address,
-                agentName: "EzDawg Agent",
-              });
-              console.log("Agent approved");
-            } catch (error: any) {
-              // If approval fails, log but don't throw - agent might already be approved
-              console.warn(
-                "Agent approval failed (might already be approved):",
-                error
-              );
-            }
-          }
-        } else {
-          console.log("Agent already approved, skipping approval step");
-        }
-
-        // Step 6: Initialize agent client
-        if (!agentClient) {
-          initAgentClient(agentAccount);
-        }
-
-        setData({
-          agentAddress: agentAccount.address,
-          initialized: true,
-        });
-      } catch (err) {
-        const error =
-          err instanceof Error ? err : new Error("Failed to initialize agent");
-        setError(error);
-        console.error("Agent initialization error:", error);
-      } finally {
-        setIsLoading(false);
+  return useQuery({
+    queryKey: ["hyperliquid", "initialize-agent", address],
+    queryFn: async () => {
+      if (!address) {
+        throw new Error("No wallet connected");
       }
-    };
 
-    initialize();
-  }, [
-    address,
-    data,
-    isLoading,
-    exchangeClient,
-    agentClient,
-    infoClient,
-    initExchangeClient,
-    initAgentClient,
-  ]);
-
-  return {
-    data,
-    isLoading,
-    error,
-  };
+      return await initializeAgent({
+        userAddress: address,
+        infoClient,
+        exchangeClient,
+        initExchangeClient,
+        initAgentClient,
+      });
+    },
+    enabled: !!address,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    staleTime: Infinity, // Never refetch once successful
+  });
 }
 
 export function useGetAgentStatus(agentAddress?: Address) {

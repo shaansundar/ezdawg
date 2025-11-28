@@ -1,8 +1,9 @@
 "use client";
 
 import { StatCard } from "@/components/ui/stat-card";
+import { Button } from "@/components/ui/button";
 import { useAccount } from "wagmi";
-import { Wallet, TrendingUp, Clock, AlertCircle, Link } from "lucide-react";
+import { Wallet, TrendingUp, Clock, AlertCircle, Link, RefreshCw } from "lucide-react";
 import { useCheckUser, useInitializeAgent } from "@/lib/hyperliquid/hooks";
 import { useRouter } from "next/navigation";
 import { SpotBalancesTable } from "@/components/dashboard/spot-balances-table";
@@ -22,6 +23,7 @@ export default function DashboardPage() {
     data: agentData,
     isLoading: isInitializingAgent,
     error: initError,
+    refetch: retryInitialization,
   } = useInitializeAgent();
 
   // Show loading state while checking user or initializing agent
@@ -69,11 +71,18 @@ export default function DashboardPage() {
         <p className="text-gray-700 text-base mb-2 text-center">
           Failed to initialize agent client.
         </p>
-        <p className="text-gray-600 text-sm text-center">
+        <p className="text-gray-600 text-sm text-center mb-4">
           {initError instanceof Error
             ? initError.message
             : "Unknown error occurred"}
         </p>
+        <Button
+          onClick={() => retryInitialization()}
+          className="inline-flex items-center gap-2"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Retry Initialization
+        </Button>
       </div>
     );
   }
