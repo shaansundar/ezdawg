@@ -32,8 +32,8 @@ export default function RootLayout({
             className="absolute inset-0 z-0"
             style={{
               backgroundImage: `
-         linear-gradient(to right, #e5e7eb 1px, transparent 1px),
-         linear-gradient(to bottom, #e5e7eb 1px, transparent 1px)
+         linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
+         linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px)
        `,
               backgroundSize: "20px 20px",
               backgroundPosition: "0 0, 0 0",
