@@ -22,19 +22,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSpotMetadata, useAllMids } from "@/lib/hyperliquid/hooks";
 import { Loader2, Plus } from "lucide-react";
+import { useSignMessage } from "wagmi";
+import { createSIP } from "@/lib/hyperliquid/sip-service";
+import { toast } from "sonner";
 
 export function CreateSipModal() {
   const [open, setOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<string>("");
   const [monthlyAmount, setMonthlyAmount] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: spotMeta, isLoading: isLoadingMeta } = useSpotMetadata();
   const { data: allMids, isLoading: isLoadingPrices } = useAllMids();
+  const { signMessageAsync } = useSignMessage();
 
-  // console.log("🚀 ~ CreateSipModal ~ allMids:", allMids);
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -50,13 +53,50 @@ export function CreateSipModal() {
       return;
     }
 
-    // TODO: Submit to backend
-    console.log("Creating SIP:", { selectedAsset, monthlyAmount: amount });
+    // Find the selected asset to get its index
+    const selectedAssetData = assetsWithPrices.find(
+      (asset) => asset?.name === selectedAsset
+    );
 
-    // Reset form and close modal
-    setSelectedAsset("");
-    setMonthlyAmount("");
-    setOpen(false);
+    if (!selectedAssetData) {
+      setError("Invalid asset selected");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Create SIP with signature verification
+      const result = await createSIP({
+        assetName: selectedAsset,
+        assetIndex: selectedAssetData.index,
+        monthlyAmountUsdc: amount,
+        signMessage: async (message: string) => {
+          const signature = await signMessageAsync({
+            message,
+          });
+          return signature;
+        },
+      });
+
+      if (result.success) {
+        toast.success("SIP created successfully", {
+          description: `Monthly investment of ${amount} USDC in ${selectedAsset}`,
+        });
+
+        // Reset form and close modal
+        setSelectedAsset("");
+        setMonthlyAmount("");
+        setOpen(false);
+      } else {
+        setError(result.error || "Failed to create SIP");
+      }
+    } catch (error: any) {
+      console.error("SIP creation error:", error);
+      setError(error.message || "Failed to create SIP");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isLoading = isLoadingMeta || isLoadingPrices;
@@ -64,10 +104,20 @@ export function CreateSipModal() {
   // Get sorted assets with prices
   const assetsWithPrices =
     spotMeta && allMids
-      ? spotMeta.universe.map((asset: any) => ({
-          name: asset.name,
-          price: allMids[asset.name] || "N/A",
-        }))
+      ? spotMeta.universe
+          .map((pair: any) => {
+            const tokenIndex = pair.tokens[0]; // Base token index
+            const token = spotMeta.tokens[tokenIndex];
+            if (!token) return null;
+
+            return {
+              name: token.name,
+              index: pair.index,
+              price: allMids[`@${pair.index}`] || "N/A",
+            };
+          })
+          .filter(Boolean) // Remove nulls
+          .sort((a: any, b: any) => a.name.localeCompare(b.name))
       : [];
 
   return (
@@ -101,8 +151,8 @@ export function CreateSipModal() {
                   </SelectTrigger>
                   <SelectContent>
                     {assetsWithPrices.map((asset) => (
-                      <SelectItem key={asset.name} value={asset.name}>
-                        {asset.name} - ${asset.price}
+                      <SelectItem key={asset?.index} value={asset?.name || ""}>
+                        {asset?.name} - ${asset?.price}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -146,8 +196,15 @@ export function CreateSipModal() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              Create SIP
+            <Button type="submit" disabled={isLoading || isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create SIP"
+              )}
             </Button>
           </DialogFooter>
         </form>

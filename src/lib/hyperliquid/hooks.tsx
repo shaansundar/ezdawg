@@ -60,7 +60,7 @@ export function useInitializeAgent() {
         infoClient,
         exchangeClient,
         initExchangeClient,
-      });
+    })
     },
     enabled: !!address,
     retry: 3,

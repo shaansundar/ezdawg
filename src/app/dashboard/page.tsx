@@ -15,6 +15,7 @@ import { useCheckUser, useInitializeAgent } from "@/lib/hyperliquid/hooks";
 import { useRouter } from "next/navigation";
 import { SpotBalancesTable } from "@/components/dashboard/spot-balances-table";
 import { CreateSipModal } from "@/components/sip/create-sip-modal";
+import { SIPList } from "@/components/sip/sip-list";
 
 export default function DashboardPage() {
   const { address } = useAccount();
@@ -97,14 +98,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">Welcome back</p>
-        </div>
-        <CreateSipModal />
-      </div>
-
       <SpotBalancesTable address={address} />
 
       {agentData && (
@@ -121,8 +114,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
-      
 
       <div className="flex flex-wrap gap-4 hidden">
         <div className="flex-1 min-w-[200px]">
@@ -155,6 +146,14 @@ export default function DashboardPage() {
             iconBgColor="bg-amber-50"
           />
         </div>
+      </div>
+
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold">Your SIPs</h2>
+          <CreateSipModal />
+        </div>
+        <SIPList />
       </div>
     </div>
   );
